@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vehicles - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 400px; max-height: 90vh; overflow-y: auto;
+        }
+        .form-label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+        .action-btn {
+            padding: 6px 12px; font-size: 12px; margin-right: 4px;
+        }
+        .search-bar { width: 300px; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item active">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Fleet Management</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                <h1>Vehicles</h1>
+                <div style="display: flex; gap: 16px;">
+                    <select id="statusFilter" class="input-field search-bar" style="width: 150px; margin-bottom: 0;">
+                        <option value="">All Statuses</option>
+                        <option value="Available">Available</option>
+                        <option value="On Trip">On Trip</option>
+                        <option value="In Shop">In Shop</option>
+                        <option value="Retired">Retired</option>
+                    </select>
+                    <input type="text" id="searchInput" class="input-field search-bar" placeholder="Search Registration...">
+                    <button id="addBtn" class="btn btn-primary">+ Add Vehicle</button>
+                </div>
+            </div>
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Reg. No</th>
+                            <th>Model</th>
+                            <th>Type</th>
+                            <th>Capacity</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                    <div style="color: var(--text-secondary); font-size: 14px;" id="pageInfo">Showing 0 to 0 of 0 entries</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" id="prevBtn" disabled>Previous</button>
+                        <button class="btn" id="nextBtn" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="formModal" class="modal">
+        <div class="modal-content card">
+            <h2 id="modalTitle" style="margin-bottom: 16px;">Add Vehicle</h2>
+            <form id="dataForm">
+                <input type="hidden" id="vehicleId">
+                <label class="form-label" for="regNumber">Registration Number</label>
+                <input type="text" id="regNumber" class="input-field" required>
+                
+                <label class="form-label" for="model">Model</label>
+                <input type="text" id="model" class="input-field" required>
+                
+                <label class="form-label" for="type">Vehicle Type</label>
+                <input type="text" id="type" class="input-field" placeholder="e.g. Van, Truck" required>
+                
+                <label class="form-label" for="capacity">Capacity (kg)</label>
+                <input type="number" id="capacity" class="input-field" required min="1">
+                
+                <label class="form-label" for="odometer">Odometer</label>
+                <input type="number" id="odometer" class="input-field" required min="0">
+                
+                <label class="form-label" for="cost">Purchase Cost</label>
+                <input type="number" id="cost" class="input-field" required min="0" step="0.01">
+                
+                <label class="form-label" for="status">Status</label>
+                <select id="status" class="input-field" style="margin-bottom: 24px;">
+                    <option value="Available">Available</option>
+                    <option value="On Trip">On Trip</option>
+                    <option value="In Shop">In Shop</option>
+                    <option value="Retired">Retired</option>
+                </select>
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Confirm Delete</h2>
+            <p style="margin-bottom: 24px;">Are you sure you want to delete this vehicle?</p>
+            <input type="hidden" id="deleteId">
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn" id="cancelDeleteBtn">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        
+        let allVehicles = [];
+        let filteredVehicles = [];
+        let currentPage = 1;
+        const itemsPerPage = 10;
+
+        async function loadData() {
+            try {
+                allVehicles = await fetchApi('/vehicles');
+                applyFilters();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function applyFilters() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            
+            filteredVehicles = allVehicles.filter(v => {
+                const matchSearch = v.registration_number.toLowerCase().includes(term);
+                const matchStatus = status ? v.status === status : true;
+                return matchSearch && matchStatus;
+            });
+            
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            const totalItems = filteredVehicles.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+            
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredVehicles.slice(startIndex, endIndex);
+
+            paginatedData.forEach(v => {
+                const statusClass = v.status === 'Available' ? 'badge-success' : v.status === 'Retired' ? 'badge-danger' : 'badge-warning';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${v.registration_number}</td>
+                        <td>${v.model}</td>
+                        <td>${v.vehicle_type}</td>
+                        <td>${v.capacity} kg</td>
+                        <td><span class="badge ${statusClass}">${v.status}</span></td>
+                        <td>
+                            <button class="btn btn-primary action-btn edit-btn" data-id="${v.id}">Edit</button>
+                            <button class="btn btn-danger action-btn delete-btn" data-id="${v.id}">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.querySelectorAll('.edit-btn').forEach(btn => btn.onclick = () => openEdit(btn.dataset.id));
+            document.querySelectorAll('.delete-btn').forEach(btn => btn.onclick = () => openDelete(btn.dataset.id));
+            
+            document.getElementById('pageInfo').innerText = `Showing ${totalItems === 0 ? 0 : startIndex + 1} to ${Math.min(endIndex, totalItems)} of ${totalItems} entries`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('statusFilter').addEventListener('change', applyFilters);
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; renderTable(); }
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
+            if (currentPage < totalPages) { currentPage++; renderTable(); }
+        });
+
+        // Modals logic
+        const formModal = document.getElementById('formModal');
+        const deleteModal = document.getElementById('deleteModal');
+
+        document.getElementById('addBtn').onclick = () => {
+            document.getElementById('dataForm').reset();
+            document.getElementById('vehicleId').value = '';
+            document.getElementById('modalTitle').innerText = 'Add Vehicle';
+            formModal.style.display = 'flex';
+        };
+
+        document.getElementById('cancelBtn').onclick = () => formModal.style.display = 'none';
+        document.getElementById('cancelDeleteBtn').onclick = () => deleteModal.style.display = 'none';
+
+        function openEdit(id) {
+            const v = allVehicles.find(x => x.id == id);
+            if (!v) return;
+            document.getElementById('vehicleId').value = v.id;
+            document.getElementById('regNumber').value = v.registration_number;
+            document.getElementById('model').value = v.model;
+            document.getElementById('type').value = v.vehicle_type;
+            document.getElementById('capacity').value = v.capacity;
+            document.getElementById('odometer').value = v.odometer;
+            document.getElementById('cost').value = v.purchase_cost;
+            document.getElementById('status').value = v.status;
+            document.getElementById('modalTitle').innerText = 'Edit Vehicle';
+            formModal.style.display = 'flex';
+        }
+
+        function openDelete(id) {
+            document.getElementById('deleteId').value = id;
+            deleteModal.style.display = 'flex';
+        }
+
+        document.getElementById('dataForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('vehicleId').value;
+            const payload = {
+                registration_number: document.getElementById('regNumber').value,
+                model: document.getElementById('model').value,
+                vehicle_type: document.getElementById('type').value,
+                capacity: parseInt(document.getElementById('capacity').value),
+                odometer: parseInt(document.getElementById('odometer').value),
+                purchase_cost: parseFloat(document.getElementById('cost').value),
+                status: document.getElementById('status').value
+            };
+
+            try {
+                if (id) {
+                    await fetchApi(`/vehicles/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+                } else {
+                    await fetchApi('/vehicles/', { method: 'POST', body: JSON.stringify(payload) });
+                }
+                formModal.style.display = 'none';
+                loadData();
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        document.getElementById('confirmDeleteBtn').onclick = async () => {
+            const id = document.getElementById('deleteId').value;
+            try {
+                await fetchApi(`/vehicles/${id}`, { method: 'DELETE' });
+                deleteModal.style.display = 'none';
+                loadData();
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        loadData();
+    </script>
+</body>
+</html>

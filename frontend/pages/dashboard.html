@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item active">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="#" class="nav-item disabled">Drivers</a>
+        <a href="#" class="nav-item disabled">Trips</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Dashboard</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <h1 style="margin-bottom: 24px;">Fleet Overview</h1>
+            <div style="display: flex; gap: 24px;">
+                <div class="card" style="flex: 1;">
+                    <div style="color: var(--text-secondary);">Total Vehicles</div>
+                    <div id="totalVehicles" style="font-size: 32px; margin-top: 8px;">0</div>
+                </div>
+                <div class="card" style="flex: 1;">
+                    <div style="color: var(--text-secondary);">Available Vehicles</div>
+                    <div id="availableVehicles" style="font-size: 32px; margin-top: 8px; color: var(--success);">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+
+        async function loadDashboardStats() {
+            try {
+                const vehicles = await fetchApi('/vehicles');
+                document.getElementById('totalVehicles').innerText = vehicles.length;
+                
+                const available = vehicles.filter(v => v.status === 'Available').length;
+                document.getElementById('availableVehicles').innerText = available;
+            } catch(err) {
+                console.error("Failed to load dashboard stats", err);
+            }
+        }
+        loadDashboardStats();
+    </script>
+</body>
+</html>

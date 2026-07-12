@@ -1,3 +1,25 @@
-node_modules/
-__pycache__/
+# Environments
+venv/
+env/
 .env
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Generation Scripts (Used for initial bootstrapping, should not be in production repo)
+generate_*.py
+build_all.py
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
