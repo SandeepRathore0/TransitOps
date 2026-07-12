@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from app.api import vehicles, drivers, auth, trips, maintenance, fuel, expenses
+from app.api import vehicles, drivers, auth, trips, maintenance, fuel, expenses, analytics, audit, users
 from app.database import engine, Base, get_db
 
 Base.metadata.create_all(bind=engine)
@@ -17,7 +17,9 @@ app.include_router(trips.router, prefix="/api/v1/trips", tags=["trips"])
 app.include_router(maintenance.router, prefix="/api/v1/maintenance", tags=["maintenance"])
 app.include_router(fuel.router, prefix="/api/v1/fuel", tags=["fuel"])
 app.include_router(expenses.router, prefix="/api/v1/expenses", tags=["expenses"])
-
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(audit.router, prefix="/api/v1/audit", tags=["audit"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 @app.get("/api/v1/dashboard/stats")
 def dashboard_stats(db: Session = Depends(get_db)):
     from app.services.trip_service import TripService

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -48,11 +48,11 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Total Fuel Cost</div>
-                    <div class="stat-value" id="statTotalCost">$0.00</div>
+                    <div class="stat-value" id="statTotalCost">₹0.00</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Avg. Cost / Liter</div>
-                    <div class="stat-value" id="statAvgPrice">$0.00</div>
+                    <div class="stat-value" id="statAvgPrice">₹0.00</div>
                 </div>
             </div>
 
@@ -109,7 +109,7 @@
                         <input type="number" id="liters" class="input-field" required min="0.01" step="0.01">
                     </div>
                     <div>
-                        <label class="form-label" for="costPerLiter">Cost per Liter ($) *</label>
+                        <label class="form-label" for="costPerLiter">Cost per Liter (₹) *</label>
                         <input type="number" id="costPerLiter" class="input-field" required min="0.01" step="0.01">
                     </div>
                 </div>
@@ -210,8 +210,8 @@
                 totalCost += log.total_cost;
             });
             document.getElementById('statTotalLiters').innerText = `${totalLiters.toFixed(1)} L`;
-            document.getElementById('statTotalCost').innerText = `$${totalCost.toFixed(2)}`;
-            document.getElementById('statAvgPrice').innerText = totalLiters > 0 ? `$${(totalCost / totalLiters).toFixed(2)}` : '$0.00';
+            document.getElementById('statTotalCost').innerText = `₹${totalCost.toFixed(2)}`;
+            document.getElementById('statAvgPrice').innerText = totalLiters > 0 ? `₹${(totalCost / totalLiters).toFixed(2)}` : '₹0.00';
         }
 
         function applyFilters() {
@@ -246,8 +246,8 @@
                         <td>${log.fuel_date}</td>
                         <td>${log.fuel_station || '&mdash;'}</td>
                         <td>${log.liters.toFixed(2)} L</td>
-                        <td>$${log.cost_per_liter.toFixed(2)}</td>
-                        <td><strong>$${log.total_cost.toFixed(2)}</strong></td>
+                        <td>₹${log.cost_per_liter.toFixed(2)}</td>
+                        <td><strong>₹${log.total_cost.toFixed(2)}</strong></td>
                         <td>${log.odometer} km</td>
                         <td>${log.receipt_number || '&mdash;'}</td>
                         <td>
@@ -328,3 +328,4 @@
     </script>
 </body>
 </html>
+

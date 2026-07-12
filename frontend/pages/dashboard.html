@@ -3,211 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TransitOps Dashboard - Fleet overview and trip statistics">
-    <title>Dashboard - TransitOps</title>
+    <title>Enterprise Analytics Dashboard - TransitOps V4</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .dashboard-columns {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 24px;
-        }
-        .vehicle-status-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 14px;
-        }
-        .vehicle-status-bar .status-label {
-            width: 100px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-        .vehicle-status-bar .status-track {
-            flex: 1;
-            height: 8px;
-            background: var(--bg-primary);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .vehicle-status-bar .status-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-        .vehicle-status-bar .status-count {
-            width: 30px;
-            text-align: right;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        @media (max-width: 768px) {
-            .dashboard-columns { grid-template-columns: 1fr; }
-        }
+        .grid-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 24px; }
+        .kpi-card { display: flex; flex-direction: column; gap: 8px; }
+        .kpi-title { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 24px; font-weight: 600; color: var(--text-primary); }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <div class="sidebar-logo">TransitOps</div>
+        <div class="sidebar-logo">TransitOps V4</div>
         <a href="dashboard.html" class="nav-item active">Dashboard</a>
-        <a href="vehicles.html" class="nav-item">Fleet</a>
-        <a href="drivers.html" class="nav-item">Drivers</a>
-        <a href="trips.html" class="nav-item">Trips</a>
-        <a href="dispatch.html" class="nav-item">Dispatch</a>
-        <a href="maintenance.html" class="nav-item">Maintenance</a>
-        <a href="fuel.html" class="nav-item">Fuel Logs</a>
-        <a href="expenses.html" class="nav-item">Expenses</a>
-        <a href="operational-summary.html" class="nav-item">Operational Summary</a>
+        <a href="users.html" class="nav-item">User Management</a>
+        <a href="analytics.html" class="nav-item">Analytics & Reports</a>
+        <a href="vehicles.html" class="nav-item">Fleet Management</a>
+        <a href="trips.html" class="nav-item">Trip Operations</a>
+        <a href="audit.html" class="nav-item">System Audit</a>
     </div>
+    
     <div class="main-content">
         <div class="navbar">
-            <div>Dashboard</div>
-            <button id="logoutBtn" class="btn">Logout</button>
+            <div>Enterprise Dashboard</div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+                <button id="exportCsvBtn" class="btn">Export Analytics (CSV)</button>
+                <button id="logoutBtn" class="btn">Logout</button>
+            </div>
         </div>
+        
         <div class="content-area">
-            <h1 style="margin-bottom: 24px;">Fleet Overview</h1>
-
-            <div class="stats-grid" id="statsGrid">
-                <div class="stat-card">
-                    <div class="stat-label">Total Vehicles</div>
-                    <div class="stat-value" id="statTotalVehicles">&mdash;</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Available Vehicles</div>
-                    <div class="stat-value" id="statAvailableVehicles" style="color: var(--success);">&mdash;</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">In Maintenance</div>
-                    <div class="stat-value" id="statMaintenance" style="color: var(--warning);">&mdash;</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Active Trips</div>
-                    <div class="stat-value" id="statActiveTrips" style="color: var(--accent-primary);">&mdash;</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Pending Trips</div>
-                    <div class="stat-value" id="statPendingTrips">&mdash;</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Drivers On Duty</div>
-                    <div class="stat-value" id="statDriversOnDuty">&mdash;</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Fleet Utilization</div>
-                    <div class="stat-value" id="statUtilization" style="color: var(--accent-primary);">&mdash;</div>
-                </div>
+            <h1 style="margin-bottom: 24px;">Executive Summary</h1>
+            
+            <div class="grid-kpis" id="kpiContainer">
+                <div class="card kpi-card skeleton" style="height: 80px;"></div>
+                <div class="card kpi-card skeleton" style="height: 80px;"></div>
+                <div class="card kpi-card skeleton" style="height: 80px;"></div>
+                <div class="card kpi-card skeleton" style="height: 80px;"></div>
             </div>
 
-            <div class="dashboard-columns">
+            <div class="grid-charts">
                 <div class="card">
-                    <h2 style="margin-bottom: 16px;">Recent Trips</h2>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Trip #</th>
-                                <th>Vehicle</th>
-                                <th>Driver</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recentTripsBody">
-                            <tr><td colspan="4" style="text-align:center; color: var(--text-secondary);">Loading...</td></tr>
-                        </tbody>
-                    </table>
+                    <h3 style="margin-bottom: 16px;">Operational Cost Breakdown</h3>
+                    <canvas id="costChart" height="200"></canvas>
                 </div>
                 <div class="card">
-                    <h2 style="margin-bottom: 20px;">Vehicle Status</h2>
-                    <div id="vehicleStatusBars">
-                        <div style="text-align:center; color: var(--text-secondary);">Loading...</div>
-                    </div>
+                    <h3 style="margin-bottom: 16px;">Fleet Utilization Trend</h3>
+                    <canvas id="utilizationChart" height="200"></canvas>
                 </div>
             </div>
         </div>
     </div>
-
-    <div class="toast-container" id="toastContainer"></div>
 
     <script type="module">
         import { fetchApi } from '../js/api.js';
         import { logout } from '../js/auth.js';
+        import { showToast } from '../js/utils.js';
+
         document.getElementById('logoutBtn').addEventListener('click', logout);
-
-        function getStatusBadge(status) {
-            const map = { 'Draft': 'badge-draft', 'Dispatched': 'badge-dispatched', 'Completed': 'badge-completed', 'Cancelled': 'badge-cancelled', 'Available': 'badge-success', 'On Trip': 'badge-info', 'In Shop': 'badge-warning', 'Retired': 'badge-danger', 'Suspended': 'badge-danger' };
-            return map[status] || 'badge-secondary';
-        }
-
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-
-        async function loadDashboard() {
+        
+        async function loadAnalytics() {
             try {
-                const stats = await fetchApi('/dashboard/stats');
-                document.getElementById('statTotalVehicles').textContent = stats.total_vehicles;
-                document.getElementById('statAvailableVehicles').textContent = stats.available_vehicles;
-                document.getElementById('statMaintenance').textContent = stats.vehicles_in_maintenance;
-                document.getElementById('statActiveTrips').textContent = stats.active_trips;
-                document.getElementById('statPendingTrips').textContent = stats.pending_trips;
-                document.getElementById('statDriversOnDuty').textContent = stats.drivers_on_duty;
-                document.getElementById('statUtilization').textContent = Math.round(stats.fleet_utilization) + '%';
-
-                // Vehicle status breakdown bars
-                const total = stats.total_vehicles || 1;
-                const available = stats.available_vehicles || 0;
-                const onTrip = stats.active_trips || 0;
-                const inShop = stats.vehicles_in_maintenance || 0;
-                const retired = Math.max(0, stats.total_vehicles - available - onTrip - inShop);
-                const bars = [
-                    { label: 'Available', count: available, color: 'var(--success)' },
-                    { label: 'On Trip', count: onTrip, color: 'var(--accent-primary)' },
-                    { label: 'In Shop', count: inShop, color: 'var(--warning)' },
-                    { label: 'Retired', count: retired, color: 'var(--danger)' }
-                ];
-                const barsContainer = document.getElementById('vehicleStatusBars');
-                barsContainer.innerHTML = bars.map(b => `
-                    <div class="vehicle-status-bar">
-                        <span class="status-label">${b.label}</span>
-                        <div class="status-track">
-                            <div class="status-fill" style="width: ${(b.count / total * 100)}%; background: ${b.color};"></div>
-                        </div>
-                        <span class="status-count">${b.count}</span>
+                const kpis = await fetchApi('/analytics/kpis');
+                
+                document.getElementById('kpiContainer').innerHTML = `
+                    <div class="card kpi-card">
+                        <span class="kpi-title">Fleet Utilization</span>
+                        <span class="kpi-value">${kpis.fleet_utilization}%</span>
                     </div>
-                `).join('');
+                    <div class="card kpi-card">
+                        <span class="kpi-title">Total Op Cost</span>
+                        <span class="kpi-value">₹${kpis.operational_cost.toLocaleString()}</span>
+                    </div>
+                    <div class="card kpi-card">
+                        <span class="kpi-title">Available Fleet</span>
+                        <span class="kpi-value">${kpis.available_vehicles} / ${kpis.total_vehicles}</span>
+                    </div>
+                    <div class="card kpi-card">
+                        <span class="kpi-title">Available Drivers</span>
+                        <span class="kpi-value">${kpis.available_drivers} / ${kpis.total_drivers}</span>
+                    </div>
+                `;
 
-            } catch (err) {
-                console.error('Failed to load dashboard stats', err);
-                showToast('Failed to load dashboard stats', 'error');
-            }
+                // Render Cost Chart
+                const ctx = document.getElementById('costChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Fuel Cost', 'Maintenance', 'Other Expenses'],
+                        datasets: [{
+                            data: [kpis.total_fuel_cost, kpis.total_maintenance_cost, 0],
+                            backgroundColor: ['#3B82F6', '#10B981', '#F59E0B'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        plugins: { legend: { labels: { color: '#F9FAFB' } } },
+                        cutout: '70%'
+                    }
+                });
+                
+                // Placeholder for Utilization Chart (Bar)
+                const utilCtx = document.getElementById('utilizationChart').getContext('2d');
+                new Chart(utilCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [{
+                            label: 'Vehicles On Trip',
+                            data: [4, 6, 8, kpis.on_trip_vehicles, kpis.on_trip_vehicles + 1, kpis.on_trip_vehicles - 1, 3],
+                            backgroundColor: '#3B82F6',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: { ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } },
+                            x: { ticks: { color: '#9CA3AF' }, grid: { display: false } }
+                        },
+                        plugins: { legend: { labels: { color: '#F9FAFB' } } }
+                    }
+                });
 
-            try {
-                const trips = await fetchApi('/trips');
-                const tbody = document.getElementById('recentTripsBody');
-                const recent = trips.slice(0, 5);
-                if (recent.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-secondary);">No trips found</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = recent.map(t => `
-                    <tr>
-                        <td><a href="trip-details.html?id=${t.id}" style="color: var(--accent-primary); text-decoration: none;">${t.trip_number}</a></td>
-                        <td>${t.vehicle ? t.vehicle.registration_number : '&mdash;'}</td>
-                        <td>${t.driver ? t.driver.name : '&mdash;'}</td>
-                        <td><span class="badge ${getStatusBadge(t.status)}">${t.status}</span></td>
-                    </tr>
-                `).join('');
+                showToast('Analytics loaded successfully', 'success');
             } catch (err) {
-                console.error('Failed to load trips', err);
+                showToast(err.message, 'error');
             }
         }
 
-        loadDashboard();
+        document.getElementById('exportCsvBtn').onclick = () => {
+            const token = localStorage.getItem('token');
+            // Standard browser download triggers don't easily support Authorization headers directly
+            // So we pass the token as a query parameter or just use fetch -> Blob for secure downloads
+            fetch('http://127.0.0.1:8000/api/v1/analytics/export/vehicles', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => {
+                if(!res.ok) throw new Error('Export failed');
+                return res.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'vehicles_report.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                showToast('CSV Export Downloaded', 'success');
+            })
+            .catch(err => showToast(err.message, 'error'));
+        };
+
+        loadAnalytics();
     </script>
 </body>
 </html>

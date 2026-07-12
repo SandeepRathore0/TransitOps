@@ -162,3 +162,32 @@ class Expense(Base):
     vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
     creator = relationship("User", foreign_keys=[created_by])
 
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    action = Column(String(100), nullable=False)
+    entity = Column(String(100), nullable=False)
+    entity_id = Column(Integer, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    ip_address = Column(String(50), nullable=True)
+    user = relationship("User")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    message = Column(Text, nullable=False)
+    priority = Column(String(50), default="Normal")
+    is_read = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    theme = Column(String(50), default="dark")
+    notifications_enabled = Column(Boolean, default=True)

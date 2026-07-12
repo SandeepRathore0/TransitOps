@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Reports - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps V4</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="analytics.html" class="nav-item active">Analytics & Reports</a>
+        <a href="vehicles.html" class="nav-item">Fleet Management</a>
+        <a href="trips.html" class="nav-item">Trip Operations</a>
+        <a href="audit.html" class="nav-item">System Audit</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Data Exports</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <h1>Download Reports</h1>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">Export raw operational data to CSV for external analysis.</p>
+            <div class="report-grid">
+                <div class="card">
+                    <h3 style="margin-bottom: 12px;">Vehicles Database</h3>
+                    <button class="btn btn-primary" onclick="exportData('vehicles')">Download CSV</button>
+                </div>
+                <div class="card">
+                    <h3 style="margin-bottom: 12px;">Drivers Database</h3>
+                    <button class="btn btn-primary" onclick="exportData('drivers')">Download CSV</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import { logout } from '../js/auth.js';
+        import { showToast } from '../js/utils.js';
+        
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        
+        window.exportData = (entity) => {
+            const token = localStorage.getItem('transitops_token');
+            fetch(`http://127.0.0.1:8000/api/v1/analytics/export/${entity}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => {
+                if(!res.ok) throw new Error('Export failed. Ensure you have Admin/Analyst permissions.');
+                return res.blob();
+            }).then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${entity}_report.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                showToast(`Report exported successfully`, 'success');
+            }).catch(err => alert(err.message));
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>System Audit - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps V4</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="analytics.html" class="nav-item">Analytics & Reports</a>
+        <a href="vehicles.html" class="nav-item">Fleet Management</a>
+        <a href="trips.html" class="nav-item">Trip Operations</a>
+        <a href="audit.html" class="nav-item active">System Audit</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>System Audit Trail</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <h1>Audit Logs</h1>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">Security and operation tracking across the platform.</p>
+            <div class="card">
+                <table class="table">
+                    <thead><tr><th>Timestamp</th><th>User ID</th><th>Action</th><th>Entity</th><th>Entity ID</th></tr></thead>
+                    <tbody id="tableBody">
+                        <!-- Skeletons -->
+                        <tr><td colspan="5"><div class="skeleton" style="height: 20px; width: 100%;"></div></td></tr>
+                        <tr><td colspan="5"><div class="skeleton" style="height: 20px; width: 100%;"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        
+        // Add skeleton styles
+        const style = document.createElement('style');
+        style.innerHTML = `
+        .skeleton { background: linear-gradient(90deg, var(--bg-card) 25%, #4B5563 50%, var(--bg-card) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        `;
+        document.head.appendChild(style);
+
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        
+        async function loadData() {
+            try {
+                const logs = await fetchApi('/audit');
+                const tbody = document.getElementById('tableBody');
+                if (logs.length === 0) tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No audit logs found.</td></tr>`;
+                else {
+                    tbody.innerHTML = logs.map(l => `<tr>
+                        <td>${new Date(l.timestamp).toLocaleString()}</td>
+                        <td>User #${l.user_id}</td>
+                        <td><span class="badge badge-success">${l.action}</span></td>
+                        <td>${l.entity}</td>
+                        <td>${l.entity_id || 'N/A'}</td>
+                    </tr>`).join('');
+                }
+            } catch (err) { alert(err.message); }
+        }
+        loadData();
+    </script>
+</body>
+</html>

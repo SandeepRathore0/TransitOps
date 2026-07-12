@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .split-layout { display: flex; gap: 24px; }
+        .form-side { flex: 1; }
+        .list-side { flex: 2; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps V4</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="users.html" class="nav-item active">User Management</a>
+        <a href="analytics.html" class="nav-item">Analytics & Reports</a>
+        <a href="vehicles.html" class="nav-item">Fleet Management</a>
+        <a href="trips.html" class="nav-item">Trip Operations</a>
+        <a href="audit.html" class="nav-item">System Audit</a>
+    </div>
+
+    <div class="main-content">
+        <div class="navbar">
+            <div>User Access & Roles</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+
+        <div class="content-area">
+            <h1>Role Based Access Control</h1>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">Create users and assign them specific roles to scope their access.</p>
+
+            <div class="split-layout">
+                <div class="form-side card">
+                    <h3 style="margin-bottom: 16px;">Create New User</h3>
+                    <form id="userForm">
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" id="name" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label class="form-label">Email</label>
+                            <input type="email" id="email" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label class="form-label">Temporary Password</label>
+                            <input type="password" id="password" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 24px;">
+                            <label class="form-label">Assign Role</label>
+                            <select id="role_name" class="form-control" required>
+                                <option value="">Loading roles...</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Create User</button>
+                    </form>
+                </div>
+
+                <div class="list-side card">
+                    <h3 style="margin-bottom: 16px;">Active Users</h3>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role ID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <tr><td colspan="4">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        import { showToast } from '../js/utils.js';
+
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+
+        let rolesMap = {};
+
+        async function init() {
+            try {
+                // Load Roles
+                const roles = await fetchApi('/users/roles');
+                const roleSelect = document.getElementById('role_name');
+                roleSelect.innerHTML = '<option value="">Select a role</option>' + 
+                    roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+                
+                roles.forEach(r => rolesMap[r.id] = r.name);
+
+                loadUsers();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const users = await fetchApi('/users');
+                const tbody = document.getElementById('userTableBody');
+                tbody.innerHTML = users.map(u => `
+                    <tr>
+                        <td><strong>${u.name}</strong></td>
+                        <td>${u.email}</td>
+                        <td><span class="badge badge-success">${rolesMap[u.role_id] || 'Role '+u.role_id}</span></td>
+                        <td>${u.is_active ? 'Active' : 'Disabled'}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                role_name: document.getElementById('role_name').value
+            };
+
+            try {
+                await fetchApi('/users', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                showToast('User created successfully!', 'success');
+                e.target.reset();
+                loadUsers();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
