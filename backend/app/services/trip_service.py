@@ -8,7 +8,7 @@ from app.repositories.driver_repo import DriverRepository
 from app.schemas.schemas import (
     TripCreate, TripUpdate, TripDispatch, TripComplete, TripCancel, DashboardStats
 )
-from app.models.models import Trip, TripHistory, ActivityLog, Vehicle, Driver
+from app.models.models import Trip, TripHistory, ActivityLog, Vehicle, Driver, FuelLog
 
 
 class TripService:
@@ -238,11 +238,16 @@ class TripService:
                 status_code=400, detail="Actual distance must be greater than 0"
             )
 
-        if data.final_odometer and vehicle:
-            if data.final_odometer < vehicle.odometer:
+        # Calculate final odometer if not provided
+        final_odometer = data.final_odometer
+        if final_odometer is None and vehicle:
+            final_odometer = vehicle.odometer + int(data.actual_distance)
+
+        if final_odometer and vehicle:
+            if final_odometer < vehicle.odometer:
                 raise HTTPException(
                     status_code=400,
-                    detail="Final odometer cannot be less than current odometer",
+                    detail=f"Final odometer ({final_odometer}) cannot be less than current odometer ({vehicle.odometer})",
                 )
 
         try:
@@ -250,19 +255,50 @@ class TripService:
             trip.completion_time = datetime.utcnow()
             trip.actual_distance = data.actual_distance
             trip.fuel_consumed = data.fuel_consumed
-            trip.final_odometer = data.final_odometer
+            trip.final_odometer = final_odometer
             trip.remarks = data.remarks or trip.remarks
             trip.updated_by = user_id
 
             if vehicle:
                 vehicle.status = "Available"
-                if data.final_odometer:
-                    vehicle.odometer = data.final_odometer
+                if final_odometer:
+                    vehicle.odometer = final_odometer
 
             if driver:
                 driver.status = "Available"
 
             self.db.flush()
+
+            # Store Fuel Log if fuel was consumed
+            if data.fuel_consumed and data.fuel_consumed > 0:
+                cost_per_liter = 100.0  # Assumed standard rate
+                total_cost = round(data.fuel_consumed * cost_per_liter, 2)
+                fuel_log = FuelLog(
+                    trip_id=trip.id,
+                    vehicle_id=trip.vehicle_id,
+                    driver_id=trip.driver_id,
+                    fuel_station="Auto Logged (Trip Completion)",
+                    liters=data.fuel_consumed,
+                    cost_per_liter=cost_per_liter,
+                    total_cost=total_cost,
+                    odometer=final_odometer or (vehicle.odometer if vehicle else 0),
+                    fuel_date=date.today(),
+                    receipt_number=f"AUTO-{trip.trip_number}",
+                    remarks=f"Auto-generated on completion of Trip {trip.trip_number}"
+                )
+                self.db.add(fuel_log)
+                self.db.flush()
+
+                # Add a fuel log activity log
+                self.repo.create_activity_log(
+                    ActivityLog(
+                        user_id=user_id,
+                        action="Fuel Logged",
+                        entity_type="Vehicle",
+                        entity_id=trip.vehicle_id,
+                        details=f"Auto-logged {data.fuel_consumed} L fuel for {vehicle.registration_number if vehicle else ''} on trip completion. Cost: {total_cost}"
+                    )
+                )
 
             self.repo.create_history(
                 TripHistory(
@@ -280,15 +316,18 @@ class TripService:
                     action="Trip Completed",
                     entity_type="Trip",
                     entity_id=trip.id,
-                    details=f"Trip {trip.trip_number} completed",
+                    details=f"Trip {trip.trip_number} completed. Actual distance: {data.actual_distance} km",
                 )
             )
 
             self.db.commit()
-        except Exception:
+        except HTTPException:
+            self.db.rollback()
+            raise
+        except Exception as e:
             self.db.rollback()
             raise HTTPException(
-                status_code=500, detail="Failed to complete trip"
+                status_code=500, detail=f"Failed to complete trip: {str(e)}"
             )
 
         self.db.refresh(trip)
@@ -443,3 +482,82 @@ class TripService:
 
     def get_trip_activity_logs(self, trip_id: int):
         return self.repo.get_trip_activity_logs(trip_id)
+
+    def get_dashboard_operations_stats(self):
+        from app.models.models import Vehicle, FuelLog, MaintenanceLog, Expense, Trip
+        
+        vehicles_available = (
+            self.db.query(func.count(Vehicle.id))
+            .filter(Vehicle.deleted_at.is_(None), Vehicle.status == "Available")
+            .scalar() or 0
+        )
+        
+        vehicles_in_shop = (
+            self.db.query(func.count(Vehicle.id))
+            .filter(Vehicle.deleted_at.is_(None), Vehicle.status == "In Shop")
+            .scalar() or 0
+        )
+        
+        today = date.today()
+        fuel_cost_today = (
+            self.db.query(func.sum(FuelLog.total_cost))
+            .filter(FuelLog.fuel_date == today)
+            .scalar() or 0.0
+        )
+        
+        maintenance_cost = (
+            self.db.query(func.sum(MaintenanceLog.actual_cost))
+            .filter(MaintenanceLog.deleted_at.is_(None), MaintenanceLog.status == "Completed")
+            .scalar() or 0.0
+        )
+        
+        first_day_of_month = date(today.year, today.month, 1)
+        monthly_expenses = (
+            self.db.query(func.sum(Expense.amount))
+            .filter(Expense.expense_date >= first_day_of_month)
+            .scalar() or 0.0
+        )
+        
+        trips_completed = (
+            self.db.query(func.count(Trip.id))
+            .filter(Trip.deleted_at.is_(None), Trip.status == "Completed")
+            .scalar() or 0
+        )
+        
+        total_fuel = (
+            self.db.query(func.sum(Trip.fuel_consumed))
+            .filter(Trip.deleted_at.is_(None), Trip.status == "Completed", Trip.fuel_consumed > 0, Trip.actual_distance > 0)
+            .scalar() or 0.0
+        )
+        total_distance = (
+            self.db.query(func.sum(Trip.actual_distance))
+            .filter(Trip.deleted_at.is_(None), Trip.status == "Completed", Trip.fuel_consumed > 0, Trip.actual_distance > 0)
+            .scalar() or 0.0
+        )
+        avg_fuel_consumption = 0.0
+        if total_distance > 0:
+            avg_fuel_consumption = round((total_fuel / total_distance) * 100, 2)
+            
+        total_fuel_cost = (
+            self.db.query(func.sum(FuelLog.total_cost))
+            .scalar() or 0.0
+        )
+        total_expense_cost = (
+            self.db.query(func.sum(Expense.amount))
+            .scalar() or 0.0
+        )
+        operational_cost = round(total_fuel_cost + maintenance_cost + total_expense_cost, 2)
+        
+        from app.schemas.schemas import DashboardOperationsStats
+        return DashboardOperationsStats(
+            vehicles_available=vehicles_available,
+            vehicles_in_shop=vehicles_in_shop,
+            fuel_cost_today=fuel_cost_today,
+            maintenance_cost=maintenance_cost,
+            operational_cost=operational_cost,
+            trips_completed=trips_completed,
+            avg_fuel_consumption=avg_fuel_consumption,
+            vehicles_under_maintenance=vehicles_in_shop,
+            monthly_expenses=monthly_expenses
+        )
+

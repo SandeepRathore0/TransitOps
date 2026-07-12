@@ -1,16 +1,17 @@
-# TransitOps - Smart Transport Operations Platform (Version 2)
+# TransitOps - Smart Transport Operations Platform (Version 3)
 
-TransitOps is a Smart Transport Operations Platform designed to manage Vehicles, Drivers, Trips, Maintenance, and Analytics.
+TransitOps is a Smart Transport Operations Platform designed to manage Vehicles, Drivers, Trips, Maintenance, Fuel Logs, Expenses, and operational analytics.
 
-**Version 2 (Transport Management & Dispatch Engine)** builds upon the foundational Version 1 (Auth & Fleet DB). V2 introduces robust, transaction-safe trip lifecycle management, real-world business rule validations, a Kanban-style Dispatch Board, and comprehensive fleet analytics.
+**Version 3 (Smart Operations)** builds upon Version 2 (Dispatch Engine) and Version 1 (Auth & Fleet Foundation). Version 3 introduces automated fleet operations after dispatch, transaction-safe maintenance lifecycles, fuel log validations, operational expense tracking, and an operational summary dashboard.
 
-## 🌟 What's New in Version 2
+## 🌟 What's New in Version 3
 
-- **Trip Management System**: Full CRUD for trips, tracking planned routes, cargo, and estimated durations.
-- **Dynamic Dispatch Engine**: Advanced business logic enforcing rules (e.g., driver license expiry, vehicle capacity, availability) with atomic database transactions guaranteeing data integrity during dispatch, complete, and cancel operations.
-- **Kanban Dispatch Board**: A dynamic 4-column drag-and-drop-style UI for visualizing operational workflow (Draft → Dispatched → Completed / Cancelled).
-- **Fleet Analytics Dashboard**: Real-time KPI metrics calculating fleet utilization, active trips, and vehicle status.
-- **Audit Logging**: Immutable historical tracking of all status transitions via `trip_history` and `activity_logs`.
+- **Automated Trip Completion Lifecycle**: Atomically logs fuel consumption, updates vehicle final odometer readings, and restores both vehicle and driver status to "Available" upon trip completion under a single database transaction.
+- **Vehicle Maintenance Engine**: Full CRUD for scheduling, starting, and completing maintenance. Automates vehicle availability transitions (`Available` ↔ `In Shop`), prevents duplicate active bookings, and locks modifications to authorized managers.
+- **Fuel Tracking & Validations**: Tracks fuel logging with validation checks preventing odometer values lower than the vehicle's last recorded odometer state.
+- **Expense Logging & Audit**: Categories tracking for tolls, parking, repairs, and fines tied to vehicles, with role-based access control.
+- **Operational Summary Dashboard**: Real-time KPI cards calculating total operational spending, maintenance logs, fuel cost totals, and fleet-wide average fuel efficiency (L/100km).
+- **Audit Logging**: Immutable historical tracking of all status transitions via `trip_history`, `maintenance_logs`, and `activity_logs`.
 
 ---
 
@@ -30,7 +31,7 @@ Ensure you have MySQL installed and running locally. Log into MySQL and create t
 ```sql
 CREATE DATABASE transitops;
 ```
-*Note: The default connection string expects the credentials `root:2006`. If your credentials differ, update the `DATABASE_URL` in `backend/app/config.py`.*
+*Note: The default connection string expects the credentials `root:Gunjan2005@`. If your credentials differ, update the `DATABASE_URL` in `backend/app/config.py`.*
 
 ### 2. Environment Setup
 Clone the repository and set up your Python virtual environment:
@@ -46,10 +47,10 @@ pip install -r requirements.txt
 ```
 
 ### 3. Initialize the Database (Seeding)
-Run the seed script to automatically create the tables, roles, the initial Admin user, and populate test vehicles and drivers:
+Run the seed script to automatically create the tables, roles, initial admin user, and populate test vehicles and drivers:
 
 ```bash
-python backend/seed_db.py
+python seed_db.py
 ```
 
 ### 4. Run the Application
@@ -77,12 +78,12 @@ Access the application at: http://localhost:3000/pages/login.html
 
 ## 🤝 Contribution Guidelines for Teammates
 
-Before you start working on future versions (e.g., Maintenance, Financials), please adhere to the following architectural rules established in Versions 1 & 2:
+Before you start working on future versions (e.g., Financials, Customer Management), please adhere to the following architectural rules established:
 
 ### 1. Backend Architecture (Strict Layering)
 * **Do NOT write SQL queries in API Routers.**
 * **Routers (`app/api/`)**: Handle HTTP requests, responses, and dependency injection (like RBAC).
-* **Services (`app/services/`)**: Contain all business logic and validations. Ensure operations modifying multiple tables (like dispatching a trip and updating vehicle/driver statuses) are wrapped in `db.commit()` blocks and caught with `db.rollback()` on failure to guarantee atomic transactions.
+* **Services (`app/services/`)**: Contain all business logic and validations. Ensure operations modifying multiple tables (like completing a trip and updating vehicle/driver/fuel logs) are wrapped in `db.commit()` blocks and caught with `db.rollback()` on failure to guarantee atomic transactions.
 * **Repositories (`app/repositories/`)**: Contain all SQLAlchemy database interactions. Use `db.flush()` instead of `db.commit()` in base repository methods when part of a multi-table transaction.
 
 ### 2. Security & RBAC

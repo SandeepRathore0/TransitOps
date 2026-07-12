@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Operational Summary - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .cost-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .cost-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .cost-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .large-cost {
+            font-size: 36px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin: 12px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+        <a href="trips.html" class="nav-item">Trips</a>
+        <a href="dispatch.html" class="nav-item">Dispatch</a>
+        <a href="maintenance.html" class="nav-item">Maintenance</a>
+        <a href="fuel.html" class="nav-item">Fuel Logs</a>
+        <a href="expenses.html" class="nav-item">Expenses</a>
+        <a href="operational-summary.html" class="nav-item active">Operational Summary</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Operational Summary Dashboard</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                <h1>Smart Operations</h1>
+                <button id="refreshBtn" class="btn btn-primary">Refresh Metrics</button>
+            </div>
+
+            <!-- Stats KPI Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Fleet Availability</div>
+                    <div class="stat-value" id="kpiAvailability">0 / 0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Vehicles in Shop</div>
+                    <div class="stat-value" id="kpiInShop" style="color: var(--warning);">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Fuel Cost Today</div>
+                    <div class="stat-value" id="kpiFuelToday">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Trips Completed</div>
+                    <div class="stat-value" id="kpiTripsCompleted">0</div>
+                </div>
+            </div>
+
+            <!-- Detailed Breakdowns -->
+            <div class="grid-3">
+                <!-- Operational Costs Card -->
+                <div class="card">
+                    <h2>Total Operational Cost</h2>
+                    <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Dynamic sum of all operational spending</p>
+                    <div class="large-cost" id="opCostTotal">$0.00</div>
+                    <div class="cost-breakdown">
+                        <div class="cost-row">
+                            <span style="color: var(--text-secondary);">Maintenance Cost (Completed)</span>
+                            <strong id="opCostMaintenance">$0.00</strong>
+                        </div>
+                        <div class="cost-row">
+                            <span style="color: var(--text-secondary);">Monthly Expenses</span>
+                            <strong id="opCostMonthlyExpenses">$0.00</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Efficiency Card -->
+                <div class="card">
+                    <h2>Fleet Efficiency</h2>
+                    <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Fuel consumption stats</p>
+                    <div class="large-cost" id="efficiencyAvg">0.0 L/100km</div>
+                    <div class="cost-breakdown">
+                        <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.5;">
+                            Average consumption is calculated dynamically across all completed trips containing valid actual distance and fuel logs.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        document.getElementById('refreshBtn').onclick = loadMetrics;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function loadMetrics() {
+            try {
+                const stats = await fetchApi('/dashboard/operations');
+                
+                // Set availability
+                const totalVehicles = stats.vehicles_available + stats.vehicles_in_shop;
+                document.getElementById('kpiAvailability').innerText = `${stats.vehicles_available} / ${totalVehicles || 0}`;
+                document.getElementById('kpiInShop').innerText = stats.vehicles_in_shop;
+                document.getElementById('kpiFuelToday').innerText = `$${stats.fuel_cost_today.toFixed(2)}`;
+                document.getElementById('kpiTripsCompleted').innerText = stats.trips_completed;
+
+                // Costs
+                document.getElementById('opCostTotal').innerText = `$${stats.operational_cost.toFixed(2)}`;
+                document.getElementById('opCostMaintenance').innerText = `$${stats.maintenance_cost.toFixed(2)}`;
+                document.getElementById('opCostMonthlyExpenses').innerText = `$${stats.monthly_expenses.toFixed(2)}`;
+
+                // Efficiency
+                document.getElementById('efficiencyAvg').innerText = `${stats.avg_fuel_consumption.toFixed(1)} L/100km`;
+
+            } catch (err) {
+                showToast('Failed to load operations metrics: ' + err.message, 'error');
+            }
+        }
+
+        // Initial Load
+        loadMetrics();
+    </script>
+</body>
+</html>

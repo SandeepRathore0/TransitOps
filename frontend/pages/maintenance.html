@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Maintenance - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 450px; max-height: 90vh; overflow-y: auto;
+        }
+        .form-label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+        .action-btn {
+            padding: 6px 12px; font-size: 12px; margin-right: 4px;
+        }
+        .search-bar { width: 300px; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+        <a href="trips.html" class="nav-item">Trips</a>
+        <a href="dispatch.html" class="nav-item">Dispatch</a>
+        <a href="maintenance.html" class="nav-item active">Maintenance</a>
+        <a href="fuel.html" class="nav-item">Fuel Logs</a>
+        <a href="expenses.html" class="nav-item">Expenses</a>
+        <a href="operational-summary.html" class="nav-item">Operational Summary</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Maintenance Logs</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                <h1>Maintenance Logs</h1>
+                <div style="display: flex; gap: 16px;">
+                    <select id="statusFilter" class="input-field search-bar" style="width: 150px; margin-bottom: 0;">
+                        <option value="">All Statuses</option>
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                    <input type="text" id="searchInput" class="input-field search-bar" placeholder="Search Workshop or Reg...">
+                    <button id="addBtn" class="btn btn-primary">+ Schedule</button>
+                </div>
+            </div>
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Type</th>
+                            <th>Workshop</th>
+                            <th>Est. Cost</th>
+                            <th>Act. Cost</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                    <div style="color: var(--text-secondary); font-size: 14px;" id="pageInfo">Showing 0 to 0 of 0 entries</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" id="prevBtn" disabled>Previous</button>
+                        <button class="btn" id="nextBtn" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="formModal" class="modal">
+        <div class="modal-content card">
+            <h2 id="modalTitle" style="margin-bottom: 16px;">Schedule Maintenance</h2>
+            <form id="dataForm">
+                <input type="hidden" id="logId">
+                
+                <label class="form-label" for="vehicleSelect">Vehicle *</label>
+                <select id="vehicleSelect" class="input-field" required></select>
+
+                <label class="form-label" for="maintenanceType">Type *</label>
+                <select id="maintenanceType" class="input-field" required>
+                    <option value="Routine">Routine Service</option>
+                    <option value="Repair">Repair</option>
+                    <option value="Inspection">Inspection</option>
+                    <option value="Bodywork">Bodywork</option>
+                    <option value="Engine">Engine / Powertrain</option>
+                    <option value="Electrical">Electrical System</option>
+                </select>
+
+                <label class="form-label" for="description">Description *</label>
+                <textarea id="description" class="input-field" rows="3" required></textarea>
+                
+                <label class="form-label" for="workshopName">Workshop Name *</label>
+                <input type="text" id="workshopName" class="input-field" required>
+
+                <label class="form-label" for="estimatedCost">Estimated Cost ($) *</label>
+                <input type="number" id="estimatedCost" class="input-field" required min="0" step="0.01">
+
+                <label class="form-label" for="startDate">Start Date *</label>
+                <input type="date" id="startDate" class="input-field" required>
+
+                <label class="form-label" for="status">Initial Status</label>
+                <select id="status" class="input-field" style="margin-bottom: 24px;">
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="In Progress">In Progress</option>
+                </select>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Complete Modal -->
+    <div id="completeModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Complete Maintenance</h2>
+            <form id="completeForm">
+                <input type="hidden" id="completeLogId">
+
+                <label class="form-label" for="actualCost">Actual Cost ($) *</label>
+                <input type="number" id="actualCost" class="input-field" required min="0" step="0.01">
+
+                <label class="form-label" for="endDate">End Date *</label>
+                <input type="date" id="endDate" class="input-field" required>
+
+                <label class="form-label" for="remarks">Remarks</label>
+                <textarea id="remarks" class="input-field" rows="3" style="margin-bottom: 24px;"></textarea>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" id="cancelCompleteBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Complete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        
+        let allLogs = [];
+        let filteredLogs = [];
+        let currentPage = 1;
+        const itemsPerPage = 10;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function loadVehicles() {
+            try {
+                const vehicles = await fetchApi('/vehicles');
+                const select = document.getElementById('vehicleSelect');
+                select.innerHTML = '<option value="">Select a Vehicle</option>';
+                vehicles.forEach(v => {
+                    if (v.status !== 'Retired') {
+                        select.innerHTML += `<option value="${v.id}">${v.registration_number} - ${v.model} (${v.status})</option>`;
+                    }
+                });
+            } catch (err) {
+                showToast('Failed to load vehicles: ' + err.message, 'error');
+            }
+        }
+
+        async function loadData() {
+            try {
+                allLogs = await fetchApi('/maintenance');
+                applyFilters();
+            } catch (err) {
+                showToast('Failed to load maintenance logs: ' + err.message, 'error');
+            }
+        }
+
+        function applyFilters() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            
+            filteredLogs = allLogs.filter(log => {
+                const reg = log.vehicle ? log.vehicle.registration_number.toLowerCase() : '';
+                const workshop = log.workshop_name.toLowerCase();
+                const type = log.maintenance_type.toLowerCase();
+                const matchSearch = reg.includes(term) || workshop.includes(term) || type.includes(term);
+                const matchStatus = status ? log.status === status : true;
+                return matchSearch && matchStatus;
+            });
+            
+            currentPage = 1;
+            renderTable();
+        }
+
+        function getStatusBadge(status) {
+            const map = {
+                'Scheduled': 'badge-warning',
+                'In Progress': 'badge-info',
+                'Completed': 'badge-success',
+                'Cancelled': 'badge-danger'
+            };
+            return map[status] || 'badge-secondary';
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            const totalItems = filteredLogs.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+            
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredLogs.slice(startIndex, endIndex);
+
+            paginatedData.forEach(log => {
+                const reg = log.vehicle ? log.vehicle.registration_number : 'Unknown';
+                let actions = '';
+                if (log.status === 'Scheduled') {
+                    actions = `
+                        <button class="btn btn-primary action-btn start-btn" data-id="${log.id}">Start</button>
+                        <button class="btn btn-danger action-btn cancel-log-btn" data-id="${log.id}">Cancel</button>
+                    `;
+                } else if (log.status === 'In Progress') {
+                    actions = `
+                        <button class="btn btn-primary action-btn complete-btn" data-id="${log.id}">Complete</button>
+                        <button class="btn btn-danger action-btn cancel-log-btn" data-id="${log.id}">Cancel</button>
+                    `;
+                } else {
+                    actions = `<span style="color: var(--text-secondary); font-size: 12px;">Locked</span>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${reg}</strong></td>
+                        <td>${log.maintenance_type}</td>
+                        <td>${log.workshop_name}</td>
+                        <td>$${log.estimated_cost.toFixed(2)}</td>
+                        <td>${log.actual_cost ? '$' + log.actual_cost.toFixed(2) : '&mdash;'}</td>
+                        <td>${log.start_date}</td>
+                        <td>${log.end_date || '&mdash;'}</td>
+                        <td><span class="badge ${getStatusBadge(log.status)}">${log.status}</span></td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            });
+
+            document.querySelectorAll('.start-btn').forEach(btn => btn.onclick = () => startMaintenance(btn.dataset.id));
+            document.querySelectorAll('.cancel-log-btn').forEach(btn => btn.onclick = () => cancelMaintenance(btn.dataset.id));
+            document.querySelectorAll('.complete-btn').forEach(btn => btn.onclick = () => openComplete(btn.dataset.id));
+            
+            document.getElementById('pageInfo').innerText = `Showing ${totalItems === 0 ? 0 : startIndex + 1} to ${Math.min(endIndex, totalItems)} of ${totalItems} entries`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+
+        async function startMaintenance(id) {
+            try {
+                await fetchApi(`/maintenance/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'In Progress' })
+                });
+                showToast('Maintenance started successfully');
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function cancelMaintenance(id) {
+            if (!confirm('Are you sure you want to cancel this maintenance log?')) return;
+            try {
+                await fetchApi(`/maintenance/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'Cancelled' })
+                });
+                showToast('Maintenance cancelled');
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        // Complete Modal logic
+        const completeModal = document.getElementById('completeModal');
+        function openComplete(id) {
+            document.getElementById('completeForm').reset();
+            document.getElementById('completeLogId').value = id;
+            document.getElementById('endDate').value = new Date().toISOString().split('T')[0];
+            completeModal.style.display = 'flex';
+        }
+        
+        document.getElementById('cancelCompleteBtn').onclick = () => completeModal.style.display = 'none';
+
+        document.getElementById('completeForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('completeLogId').value;
+            const payload = {
+                actual_cost: parseFloat(document.getElementById('actualCost').value),
+                end_date: document.getElementById('endDate').value,
+                remarks: document.getElementById('remarks').value || null
+            };
+            try {
+                await fetchApi(`/maintenance/${id}/complete`, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                showToast('Maintenance completed successfully');
+                completeModal.style.display = 'none';
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+
+        // Add Modal logic
+        const formModal = document.getElementById('formModal');
+        document.getElementById('addBtn').onclick = () => {
+            document.getElementById('dataForm').reset();
+            document.getElementById('logId').value = '';
+            document.getElementById('startDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('modalTitle').innerText = 'Schedule Maintenance';
+            formModal.style.display = 'flex';
+        };
+
+        document.getElementById('cancelBtn').onclick = () => formModal.style.display = 'none';
+
+        document.getElementById('dataForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                vehicle_id: parseInt(document.getElementById('vehicleSelect').value),
+                maintenance_type: document.getElementById('maintenanceType').value,
+                description: document.getElementById('description').value,
+                workshop_name: document.getElementById('workshopName').value,
+                estimated_cost: parseFloat(document.getElementById('estimatedCost').value),
+                start_date: document.getElementById('startDate').value,
+                status: document.getElementById('status').value
+            };
+            try {
+                await fetchApi('/maintenance/', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                showToast('Maintenance scheduled successfully');
+                formModal.style.display = 'none';
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('statusFilter').addEventListener('change', applyFilters);
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; renderTable(); }
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+            if (currentPage < totalPages) { currentPage++; renderTable(); }
+        });
+
+        // Initialize
+        loadVehicles();
+        loadData();
+    </script>
+</body>
+</html>

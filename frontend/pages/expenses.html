@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Expenses - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 450px; max-height: 90vh; overflow-y: auto;
+        }
+        .form-label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+        .action-btn {
+            padding: 6px 12px; font-size: 12px; margin-right: 4px;
+        }
+        .search-bar { width: 300px; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+        <a href="trips.html" class="nav-item">Trips</a>
+        <a href="dispatch.html" class="nav-item">Dispatch</a>
+        <a href="maintenance.html" class="nav-item">Maintenance</a>
+        <a href="fuel.html" class="nav-item">Fuel Logs</a>
+        <a href="expenses.html" class="nav-item active">Expenses</a>
+        <a href="operational-summary.html" class="nav-item">Operational Summary</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Expenses Tracking</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <!-- Top Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Expenses</div>
+                    <div class="stat-value" id="statTotalAmount">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Tolls & Parking</div>
+                    <div class="stat-value" id="statTollParking">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Repairs & Fines</div>
+                    <div class="stat-value" id="statRepairsFines">$0.00</div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                <h1>Expenses</h1>
+                <div style="display: flex; gap: 16px;">
+                    <select id="typeFilter" class="input-field search-bar" style="width: 150px; margin-bottom: 0;">
+                        <option value="">All Categories</option>
+                        <option value="Toll">Toll</option>
+                        <option value="Repair">Repair</option>
+                        <option value="Parking">Parking</option>
+                        <option value="Fine">Fine</option>
+                        <option value="Insurance">Insurance</option>
+                        <option value="Miscellaneous">Miscellaneous</option>
+                    </select>
+                    <input type="text" id="searchInput" class="input-field search-bar" placeholder="Search Description or Reg...">
+                    <button id="addBtn" class="btn btn-primary">+ Add Expense</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Description</th>
+                            <th>Vehicle</th>
+                            <th>Trip</th>
+                            <th>Receipt Ref.</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                    <div style="color: var(--text-secondary); font-size: 14px;" id="pageInfo">Showing 0 to 0 of 0 entries</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" id="prevBtn" disabled>Previous</button>
+                        <button class="btn" id="nextBtn" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Modal -->
+    <div id="formModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Log New Expense</h2>
+            <form id="dataForm">
+                <label class="form-label" for="expenseType">Expense Category *</label>
+                <select id="expenseType" class="input-field" required>
+                    <option value="Toll">Toll</option>
+                    <option value="Repair">Repair</option>
+                    <option value="Parking">Parking</option>
+                    <option value="Fine">Fine</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Miscellaneous">Miscellaneous</option>
+                </select>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label class="form-label" for="amount">Amount ($) *</label>
+                        <input type="number" id="amount" class="input-field" required min="0.01" step="0.01">
+                    </div>
+                    <div>
+                        <label class="form-label" for="expenseDate">Expense Date *</label>
+                        <input type="date" id="expenseDate" class="input-field" required>
+                    </div>
+                </div>
+
+                <label class="form-label" for="description">Description *</label>
+                <input type="text" id="description" class="input-field" required>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label class="form-label" for="vehicleSelect">Vehicle (Optional)</label>
+                        <select id="vehicleSelect" class="input-field"></select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="tripSelect">Trip (Optional)</label>
+                        <select id="tripSelect" class="input-field"></select>
+                    </div>
+                </div>
+
+                <label class="form-label" for="receiptReference">Receipt Reference / Invoice No.</label>
+                <input type="text" id="receiptReference" class="input-field" style="margin-bottom: 24px;">
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Log Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        
+        let allExpenses = [];
+        let filteredExpenses = [];
+        let currentPage = 1;
+        const itemsPerPage = 10;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function loadVehicles() {
+            try {
+                const vehicles = await fetchApi('/vehicles');
+                const select = document.getElementById('vehicleSelect');
+                select.innerHTML = '<option value="">Select Vehicle</option>';
+                vehicles.forEach(v => {
+                    select.innerHTML += `<option value="${v.id}">${v.registration_number}</option>`;
+                });
+            } catch (err) {
+                showToast('Failed to load vehicles: ' + err.message, 'error');
+            }
+        }
+
+        async function loadTrips() {
+            try {
+                const trips = await fetchApi('/trips');
+                const select = document.getElementById('tripSelect');
+                select.innerHTML = '<option value="">Select Trip</option>';
+                trips.forEach(t => {
+                    select.innerHTML += `<option value="${t.id}">${t.trip_number} (${t.source} &rarr; ${t.destination})</option>`;
+                });
+            } catch (err) {
+                showToast('Failed to load trips: ' + err.message, 'error');
+            }
+        }
+
+        async function loadData() {
+            try {
+                allExpenses = await fetchApi('/expenses');
+                calculateStats();
+                applyFilters();
+            } catch (err) {
+                showToast('Failed to load expenses: ' + err.message, 'error');
+            }
+        }
+
+        function calculateStats() {
+            let totalAmount = 0;
+            let tollParking = 0;
+            let repairsFines = 0;
+            allExpenses.forEach(exp => {
+                totalAmount += exp.amount;
+                if (exp.expense_type === 'Toll' || exp.expense_type === 'Parking') {
+                    tollParking += exp.amount;
+                } else if (exp.expense_type === 'Repair' || exp.expense_type === 'Fine') {
+                    repairsFines += exp.amount;
+                }
+            });
+            document.getElementById('statTotalAmount').innerText = `$${totalAmount.toFixed(2)}`;
+            document.getElementById('statTollParking').innerText = `$${tollParking.toFixed(2)}`;
+            document.getElementById('statRepairsFines').innerText = `$${repairsFines.toFixed(2)}`;
+        }
+
+        function applyFilters() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('typeFilter').value;
+            
+            filteredExpenses = allExpenses.filter(exp => {
+                const reg = exp.vehicle ? exp.vehicle.registration_number.toLowerCase() : '';
+                const desc = exp.description.toLowerCase();
+                const matchSearch = reg.includes(term) || desc.includes(term);
+                const matchCategory = category ? exp.expense_type === category : true;
+                return matchSearch && matchCategory;
+            });
+            
+            currentPage = 1;
+            renderTable();
+        }
+
+        function getCategoryBadge(category) {
+            const map = {
+                'Toll': 'badge-info',
+                'Repair': 'badge-warning',
+                'Parking': 'badge-secondary',
+                'Fine': 'badge-danger',
+                'Insurance': 'badge-success',
+                'Miscellaneous': 'badge-draft'
+            };
+            return map[category] || 'badge-secondary';
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            const totalItems = filteredExpenses.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+            
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredExpenses.slice(startIndex, endIndex);
+
+            paginatedData.forEach(exp => {
+                const reg = exp.vehicle ? exp.vehicle.registration_number : '&mdash;';
+                const tripNum = exp.trip ? exp.trip.trip_number : '&mdash;';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${exp.expense_date}</td>
+                        <td><span class="badge ${getCategoryBadge(exp.expense_type)}">${exp.expense_type}</span></td>
+                        <td><strong>$${exp.amount.toFixed(2)}</strong></td>
+                        <td>${exp.description}</td>
+                        <td>${reg}</td>
+                        <td>${tripNum}</td>
+                        <td>${exp.receipt_reference || '&mdash;'}</td>
+                        <td>
+                            <button class="btn btn-danger action-btn delete-btn" data-id="${exp.id}">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => btn.onclick = () => deleteExpense(btn.dataset.id));
+            
+            document.getElementById('pageInfo').innerText = `Showing ${totalItems === 0 ? 0 : startIndex + 1} to ${Math.min(endIndex, totalItems)} of ${totalItems} entries`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+
+        async function deleteExpense(id) {
+            if (!confirm('Are you sure you want to delete this expense record?')) return;
+            try {
+                await fetchApi(`/expenses/${id}`, { method: 'DELETE' });
+                showToast('Expense deleted successfully');
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        // Add Modal logic
+        const formModal = document.getElementById('formModal');
+        document.getElementById('addBtn').onclick = () => {
+            document.getElementById('dataForm').reset();
+            document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+            formModal.style.display = 'flex';
+        };
+
+        document.getElementById('cancelBtn').onclick = () => formModal.style.display = 'none';
+
+        document.getElementById('dataForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                expense_type: document.getElementById('expenseType').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                expense_date: document.getElementById('expenseDate').value,
+                description: document.getElementById('description').value,
+                vehicle_id: document.getElementById('vehicleSelect').value ? parseInt(document.getElementById('vehicleSelect').value) : null,
+                trip_id: document.getElementById('tripSelect').value ? parseInt(document.getElementById('tripSelect').value) : null,
+                receipt_reference: document.getElementById('receiptReference').value || null
+            };
+            try {
+                await fetchApi('/expenses/', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                showToast('Expense logged successfully');
+                formModal.style.display = 'none';
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('typeFilter').addEventListener('change', applyFilters);
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; renderTable(); }
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+            if (currentPage < totalPages) { currentPage++; renderTable(); }
+        });
+
+        // Initialize
+        loadVehicles();
+        loadTrips();
+        loadData();
+    </script>
+</body>
+</html>

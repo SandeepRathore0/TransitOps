@@ -161,3 +161,119 @@ class DashboardStats(BaseModel):
     fleet_utilization: float = 0.0
     total_drivers: int = 0
     available_drivers: int = 0
+
+
+# --- Maintenance Log Schemas ---
+class MaintenanceBase(BaseModel):
+    vehicle_id: int
+    maintenance_type: str
+    description: str
+    workshop_name: str
+    estimated_cost: float
+    actual_cost: Optional[float] = None
+    start_date: date
+    end_date: Optional[date] = None
+    status: str = "Scheduled"
+    remarks: Optional[str] = None
+
+class MaintenanceCreate(MaintenanceBase):
+    pass
+
+class MaintenanceUpdate(BaseModel):
+    maintenance_type: Optional[str] = None
+    description: Optional[str] = None
+    workshop_name: Optional[str] = None
+    estimated_cost: Optional[float] = None
+    actual_cost: Optional[float] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    status: Optional[str] = None
+    remarks: Optional[str] = None
+
+class MaintenanceComplete(BaseModel):
+    actual_cost: float
+    end_date: date
+    remarks: Optional[str] = None
+
+class MaintenanceResponse(MaintenanceBase):
+    id: int
+    created_by: int
+    updated_by: Optional[int] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    vehicle: Optional[VehicleResponse] = None
+    class Config:
+        from_attributes = True
+
+
+# --- Fuel Log Schemas ---
+class FuelLogBase(BaseModel):
+    trip_id: Optional[int] = None
+    vehicle_id: int
+    driver_id: Optional[int] = None
+    fuel_station: Optional[str] = None
+    liters: float
+    cost_per_liter: float
+    total_cost: float
+    odometer: int
+    fuel_date: date
+    receipt_number: Optional[str] = None
+    remarks: Optional[str] = None
+
+class FuelLogCreate(BaseModel):
+    trip_id: Optional[int] = None
+    vehicle_id: int
+    driver_id: Optional[int] = None
+    fuel_station: Optional[str] = None
+    liters: float
+    cost_per_liter: float
+    odometer: int
+    fuel_date: date
+    receipt_number: Optional[str] = None
+    remarks: Optional[str] = None
+
+class FuelLogResponse(FuelLogBase):
+    id: int
+    created_at: datetime
+    vehicle: Optional[VehicleResponse] = None
+    driver: Optional[DriverResponse] = None
+    trip: Optional[TripResponse] = None
+    class Config:
+        from_attributes = True
+
+
+# --- Expense Schemas ---
+class ExpenseBase(BaseModel):
+    trip_id: Optional[int] = None
+    vehicle_id: Optional[int] = None
+    expense_type: str
+    amount: float
+    description: str
+    expense_date: date
+    receipt_reference: Optional[str] = None
+
+class ExpenseCreate(ExpenseBase):
+    pass
+
+class ExpenseResponse(ExpenseBase):
+    id: int
+    created_by: int
+    created_at: datetime
+    vehicle: Optional[VehicleResponse] = None
+    trip: Optional[TripResponse] = None
+    class Config:
+        from_attributes = True
+
+
+# --- Dashboard Operations Schemas ---
+class DashboardOperationsStats(BaseModel):
+    vehicles_available: int = 0
+    vehicles_in_shop: int = 0
+    fuel_cost_today: float = 0.0
+    maintenance_cost: float = 0.0
+    operational_cost: float = 0.0
+    trips_completed: int = 0
+    avg_fuel_consumption: float = 0.0
+    vehicles_under_maintenance: int = 0
+    monthly_expenses: float = 0.0
+

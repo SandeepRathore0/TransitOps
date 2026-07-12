@@ -98,3 +98,67 @@ class ActivityLog(Base):
     details = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User", foreign_keys=[user_id])
+
+
+class MaintenanceLog(Base):
+    __tablename__ = 'maintenance_logs'
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id'), nullable=False)
+    maintenance_type = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False)
+    workshop_name = Column(String(150), nullable=False)
+    estimated_cost = Column(Float, nullable=False)
+    actual_cost = Column(Float, nullable=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=True)
+    status = Column(String(50), nullable=False, default="Scheduled")
+    remarks = Column(Text, nullable=True)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    updated_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
+    creator = relationship("User", foreign_keys=[created_by])
+    updater = relationship("User", foreign_keys=[updated_by])
+
+
+class FuelLog(Base):
+    __tablename__ = 'fuel_logs'
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey('trips.id'), nullable=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id'), nullable=False)
+    driver_id = Column(Integer, ForeignKey('drivers.id'), nullable=True)
+    fuel_station = Column(String(150), nullable=True)
+    liters = Column(Float, nullable=False)
+    cost_per_liter = Column(Float, nullable=False)
+    total_cost = Column(Float, nullable=False)
+    odometer = Column(Integer, nullable=False)
+    fuel_date = Column(Date, nullable=False)
+    receipt_number = Column(String(100), nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    trip = relationship("Trip", foreign_keys=[trip_id])
+    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
+    driver = relationship("Driver", foreign_keys=[driver_id])
+
+
+class Expense(Base):
+    __tablename__ = 'expenses'
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey('trips.id'), nullable=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id'), nullable=True)
+    expense_type = Column(String(50), nullable=False)
+    amount = Column(Float, nullable=False)
+    description = Column(Text, nullable=False)
+    expense_date = Column(Date, nullable=False)
+    receipt_reference = Column(String(100), nullable=True)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    trip = relationship("Trip", foreign_keys=[trip_id])
+    vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
+    creator = relationship("User", foreign_keys=[created_by])
+

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fuel Logs - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 450px; max-height: 90vh; overflow-y: auto;
+        }
+        .form-label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+        .action-btn {
+            padding: 6px 12px; font-size: 12px; margin-right: 4px;
+        }
+        .search-bar { width: 300px; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+        <a href="trips.html" class="nav-item">Trips</a>
+        <a href="dispatch.html" class="nav-item">Dispatch</a>
+        <a href="maintenance.html" class="nav-item">Maintenance</a>
+        <a href="fuel.html" class="nav-item active">Fuel Logs</a>
+        <a href="expenses.html" class="nav-item">Expenses</a>
+        <a href="operational-summary.html" class="nav-item">Operational Summary</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Fuel Tracking</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <!-- Top Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Fuel Logged</div>
+                    <div class="stat-value" id="statTotalLiters">0 L</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Fuel Cost</div>
+                    <div class="stat-value" id="statTotalCost">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg. Cost / Liter</div>
+                    <div class="stat-value" id="statAvgPrice">$0.00</div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                <h1>Fuel Logs</h1>
+                <div style="display: flex; gap: 16px;">
+                    <input type="text" id="searchInput" class="input-field search-bar" placeholder="Search Station or Reg...">
+                    <button id="addBtn" class="btn btn-primary">+ Log Fuel</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Date</th>
+                            <th>Station</th>
+                            <th>Liters</th>
+                            <th>Cost/L</th>
+                            <th>Total Cost</th>
+                            <th>Odometer</th>
+                            <th>Receipt</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                    <div style="color: var(--text-secondary); font-size: 14px;" id="pageInfo">Showing 0 to 0 of 0 entries</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" id="prevBtn" disabled>Previous</button>
+                        <button class="btn" id="nextBtn" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Modal -->
+    <div id="formModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Log Fuel Purchase</h2>
+            <form id="dataForm">
+                <label class="form-label" for="vehicleSelect">Vehicle *</label>
+                <select id="vehicleSelect" class="input-field" required></select>
+
+                <label class="form-label" for="fuelStation">Fuel Station *</label>
+                <input type="text" id="fuelStation" class="input-field" required>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label class="form-label" for="liters">Liters *</label>
+                        <input type="number" id="liters" class="input-field" required min="0.01" step="0.01">
+                    </div>
+                    <div>
+                        <label class="form-label" for="costPerLiter">Cost per Liter ($) *</label>
+                        <input type="number" id="costPerLiter" class="input-field" required min="0.01" step="0.01">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label class="form-label" for="odometer">Odometer (km) *</label>
+                        <input type="number" id="odometer" class="input-field" required min="0">
+                    </div>
+                    <div>
+                        <label class="form-label" for="fuelDate">Fuel Date *</label>
+                        <input type="date" id="fuelDate" class="input-field" required>
+                    </div>
+                </div>
+
+                <label class="form-label" for="receiptNumber">Receipt Number</label>
+                <input type="text" id="receiptNumber" class="input-field">
+
+                <label class="form-label" for="driverSelect">Driver (Optional)</label>
+                <select id="driverSelect" class="input-field"></select>
+
+                <label class="form-label" for="remarks">Remarks</label>
+                <textarea id="remarks" class="input-field" rows="2" style="margin-bottom: 24px;"></textarea>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Log Fuel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+        
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        
+        let allLogs = [];
+        let filteredLogs = [];
+        let currentPage = 1;
+        const itemsPerPage = 10;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function loadVehicles() {
+            try {
+                const vehicles = await fetchApi('/vehicles');
+                const select = document.getElementById('vehicleSelect');
+                select.innerHTML = '<option value="">Select a Vehicle</option>';
+                vehicles.forEach(v => {
+                    if (v.status !== 'Retired') {
+                        select.innerHTML += `<option value="${v.id}">${v.registration_number} (${v.model})</option>`;
+                    }
+                });
+            } catch (err) {
+                showToast('Failed to load vehicles: ' + err.message, 'error');
+            }
+        }
+
+        async function loadDrivers() {
+            try {
+                const drivers = await fetchApi('/drivers');
+                const select = document.getElementById('driverSelect');
+                select.innerHTML = '<option value="">Select a Driver</option>';
+                drivers.forEach(d => {
+                    select.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+                });
+            } catch (err) {
+                showToast('Failed to load drivers: ' + err.message, 'error');
+            }
+        }
+
+        async function loadData() {
+            try {
+                allLogs = await fetchApi('/fuel');
+                calculateStats();
+                applyFilters();
+            } catch (err) {
+                showToast('Failed to load fuel logs: ' + err.message, 'error');
+            }
+        }
+
+        function calculateStats() {
+            let totalLiters = 0;
+            let totalCost = 0;
+            allLogs.forEach(log => {
+                totalLiters += log.liters;
+                totalCost += log.total_cost;
+            });
+            document.getElementById('statTotalLiters').innerText = `${totalLiters.toFixed(1)} L`;
+            document.getElementById('statTotalCost').innerText = `$${totalCost.toFixed(2)}`;
+            document.getElementById('statAvgPrice').innerText = totalLiters > 0 ? `$${(totalCost / totalLiters).toFixed(2)}` : '$0.00';
+        }
+
+        function applyFilters() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            
+            filteredLogs = allLogs.filter(log => {
+                const reg = log.vehicle ? log.vehicle.registration_number.toLowerCase() : '';
+                const station = log.fuel_station ? log.fuel_station.toLowerCase() : '';
+                return reg.includes(term) || station.includes(term);
+            });
+            
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            const totalItems = filteredLogs.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+            
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredLogs.slice(startIndex, endIndex);
+
+            paginatedData.forEach(log => {
+                const reg = log.vehicle ? log.vehicle.registration_number : 'Unknown';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${reg}</strong></td>
+                        <td>${log.fuel_date}</td>
+                        <td>${log.fuel_station || '&mdash;'}</td>
+                        <td>${log.liters.toFixed(2)} L</td>
+                        <td>$${log.cost_per_liter.toFixed(2)}</td>
+                        <td><strong>$${log.total_cost.toFixed(2)}</strong></td>
+                        <td>${log.odometer} km</td>
+                        <td>${log.receipt_number || '&mdash;'}</td>
+                        <td>
+                            <button class="btn btn-danger action-btn delete-btn" data-id="${log.id}">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => btn.onclick = () => deleteLog(btn.dataset.id));
+            
+            document.getElementById('pageInfo').innerText = `Showing ${totalItems === 0 ? 0 : startIndex + 1} to ${Math.min(endIndex, totalItems)} of ${totalItems} entries`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+
+        async function deleteLog(id) {
+            if (!confirm('Are you sure you want to delete this fuel purchase log?')) return;
+            try {
+                await fetchApi(`/fuel/${id}`, { method: 'DELETE' });
+                showToast('Fuel log deleted successfully');
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        // Add Modal logic
+        const formModal = document.getElementById('formModal');
+        document.getElementById('addBtn').onclick = () => {
+            document.getElementById('dataForm').reset();
+            document.getElementById('fuelDate').value = new Date().toISOString().split('T')[0];
+            formModal.style.display = 'flex';
+        };
+
+        document.getElementById('cancelBtn').onclick = () => formModal.style.display = 'none';
+
+        document.getElementById('dataForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                vehicle_id: parseInt(document.getElementById('vehicleSelect').value),
+                fuel_station: document.getElementById('fuelStation').value,
+                liters: parseFloat(document.getElementById('liters').value),
+                cost_per_liter: parseFloat(document.getElementById('costPerLiter').value),
+                odometer: parseInt(document.getElementById('odometer').value),
+                fuel_date: document.getElementById('fuelDate').value,
+                receipt_number: document.getElementById('receiptNumber').value || null,
+                driver_id: document.getElementById('driverSelect').value ? parseInt(document.getElementById('driverSelect').value) : null,
+                remarks: document.getElementById('remarks').value || null
+            };
+            try {
+                await fetchApi('/fuel/', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                showToast('Fuel purchase logged successfully');
+                formModal.style.display = 'none';
+                loadData();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; renderTable(); }
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+            if (currentPage < totalPages) { currentPage++; renderTable(); }
+        });
+
+        // Initialize
+        loadVehicles();
+        loadDrivers();
+        loadData();
+    </script>
+</body>
+</html>
