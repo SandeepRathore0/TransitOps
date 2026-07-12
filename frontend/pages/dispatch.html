@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TransitOps Dispatch Board - Manage trip lifecycle and dispatch operations">
+    <title>Dispatch Board - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 450px; max-height: 90vh; overflow-y: auto;
+        }
+        .form-label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+        .empty-column {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 13px;
+            padding: 40px 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+        <a href="trips.html" class="nav-item">Trips</a>
+        <a href="dispatch.html" class="nav-item active">Dispatch</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Dispatch Board</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <h1 style="margin-bottom: 24px;">Dispatch Board</h1>
+
+            <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="stat-card">
+                    <div class="stat-label">Draft</div>
+                    <div class="stat-value" id="statDraft">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Dispatched</div>
+                    <div class="stat-value" id="statDispatched" style="color: var(--accent-primary);">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Completed Today</div>
+                    <div class="stat-value" id="statCompleted" style="color: var(--success);">0</div>
+                </div>
+            </div>
+
+            <div class="dispatch-grid" id="dispatchGrid">
+                <div class="dispatch-column">
+                    <div class="dispatch-column-header">
+                        <span>Draft</span>
+                        <span class="dispatch-column-count" id="countDraft">0</span>
+                    </div>
+                    <div id="colDraft" class="dispatch-column-body">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                <div class="dispatch-column">
+                    <div class="dispatch-column-header">
+                        <span>Dispatched</span>
+                        <span class="dispatch-column-count" id="countDispatched">0</span>
+                    </div>
+                    <div id="colDispatched" class="dispatch-column-body">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                <div class="dispatch-column">
+                    <div class="dispatch-column-header">
+                        <span>Completed</span>
+                        <span class="dispatch-column-count" id="countCompleted">0</span>
+                    </div>
+                    <div id="colCompleted" class="dispatch-column-body">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                <div class="dispatch-column">
+                    <div class="dispatch-column-header">
+                        <span>Cancelled</span>
+                        <span class="dispatch-column-count" id="countCancelled">0</span>
+                    </div>
+                    <div id="colCancelled" class="dispatch-column-body">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Trip Modal -->
+    <div id="completeModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Complete Trip</h2>
+            <form id="completeForm">
+                <input type="hidden" id="completeTripId">
+                <label class="form-label" for="actualDistance">Actual Distance (km) *</label>
+                <input type="number" id="actualDistance" class="input-field" required min="0" step="0.1">
+
+                <label class="form-label" for="fuelConsumed">Fuel Consumed (liters)</label>
+                <input type="number" id="fuelConsumed" class="input-field" min="0" step="0.1">
+
+                <label class="form-label" for="finalOdometer">Final Odometer</label>
+                <input type="number" id="finalOdometer" class="input-field" min="0">
+
+                <label class="form-label" for="completeRemarks">Remarks</label>
+                <textarea id="completeRemarks" class="input-field" rows="3" style="resize: vertical; margin-bottom: 24px;"></textarea>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" id="cancelCompleteBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Complete Trip</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cancel Confirmation Modal -->
+    <div id="cancelModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Cancel Trip</h2>
+            <p style="margin-bottom: 24px;">Are you sure you want to cancel this trip? This action cannot be undone.</p>
+            <input type="hidden" id="cancelTripId">
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn" id="cancelCancelBtn">Go Back</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">Cancel Trip</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+
+        function getStatusBadge(status) {
+            const map = { 'Draft': 'badge-draft', 'Dispatched': 'badge-dispatched', 'Completed': 'badge-completed', 'Cancelled': 'badge-cancelled', 'Available': 'badge-success', 'On Trip': 'badge-info', 'In Shop': 'badge-warning', 'Retired': 'badge-danger', 'Suspended': 'badge-danger' };
+            return map[status] || 'badge-secondary';
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function renderTripCard(t, actions) {
+            return `
+                <div class="trip-card">
+                    <div class="trip-card-header">
+                        <strong>${t.trip_number}</strong>
+                        <span class="badge ${getStatusBadge(t.status)}">${t.status}</span>
+                    </div>
+                    <div class="trip-card-route">${t.source} &rarr; ${t.destination}</div>
+                    <div class="trip-card-meta">
+                        <span>&#128667; ${t.vehicle ? t.vehicle.registration_number : '&mdash;'}</span>
+                        <span>&#128100; ${t.driver ? t.driver.name : '&mdash;'}</span>
+                        <span>&#128230; ${t.cargo_weight || 0} kg</span>
+                    </div>
+                    <div class="trip-card-actions">${actions}</div>
+                </div>
+            `;
+        }
+
+        async function loadBoard() {
+            try {
+                const trips = await fetchApi('/trips');
+
+                const draft = trips.filter(t => t.status === 'Draft');
+                const dispatched = trips.filter(t => t.status === 'Dispatched');
+                const completed = trips.filter(t => t.status === 'Completed');
+                const cancelled = trips.filter(t => t.status === 'Cancelled');
+
+                // Update stat cards
+                document.getElementById('statDraft').textContent = draft.length;
+                document.getElementById('statDispatched').textContent = dispatched.length;
+                document.getElementById('statCompleted').textContent = completed.length;
+
+                // Update column counts
+                document.getElementById('countDraft').textContent = draft.length;
+                document.getElementById('countDispatched').textContent = dispatched.length;
+                document.getElementById('countCompleted').textContent = completed.length;
+                document.getElementById('countCancelled').textContent = cancelled.length;
+
+                // Render columns
+                document.getElementById('colDraft').innerHTML = draft.length === 0
+                    ? '<div class="empty-column">No draft trips</div>'
+                    : draft.map(t => renderTripCard(t,
+                        `<button class="btn btn-primary dispatch-btn" data-id="${t.id}">Dispatch</button>
+                         <button class="btn view-btn" data-id="${t.id}">View</button>`
+                    )).join('');
+
+                document.getElementById('colDispatched').innerHTML = dispatched.length === 0
+                    ? '<div class="empty-column">No dispatched trips</div>'
+                    : dispatched.map(t => renderTripCard(t,
+                        `<button class="btn btn-primary complete-btn" data-id="${t.id}">Complete</button>
+                         <button class="btn btn-danger cancel-btn" data-id="${t.id}">Cancel</button>
+                         <button class="btn view-btn" data-id="${t.id}">View</button>`
+                    )).join('');
+
+                document.getElementById('colCompleted').innerHTML = completed.length === 0
+                    ? '<div class="empty-column">No completed trips</div>'
+                    : completed.map(t => renderTripCard(t,
+                        `<button class="btn view-btn" data-id="${t.id}">View</button>`
+                    )).join('');
+
+                document.getElementById('colCancelled').innerHTML = cancelled.length === 0
+                    ? '<div class="empty-column">No cancelled trips</div>'
+                    : cancelled.map(t => renderTripCard(t,
+                        `<button class="btn view-btn" data-id="${t.id}">View</button>`
+                    )).join('');
+
+                // Attach event listeners
+                document.querySelectorAll('.dispatch-btn').forEach(btn => {
+                    btn.onclick = () => dispatchTrip(btn.dataset.id);
+                });
+                document.querySelectorAll('.complete-btn').forEach(btn => {
+                    btn.onclick = () => openComplete(btn.dataset.id);
+                });
+                document.querySelectorAll('.cancel-btn').forEach(btn => {
+                    btn.onclick = () => openCancel(btn.dataset.id);
+                });
+                document.querySelectorAll('.view-btn').forEach(btn => {
+                    btn.onclick = () => { window.location.href = `trip-details.html?id=${btn.dataset.id}`; };
+                });
+
+            } catch (err) {
+                showToast('Failed to load dispatch board', 'error');
+                console.error(err);
+            }
+        }
+
+        async function dispatchTrip(id) {
+            try {
+                await fetchApi(`/trips/${id}/dispatch`, { method: 'PUT' });
+                showToast('Trip dispatched successfully');
+                loadBoard();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        // Complete modal
+        const completeModal = document.getElementById('completeModal');
+
+        function openComplete(id) {
+            document.getElementById('completeForm').reset();
+            document.getElementById('completeTripId').value = id;
+            completeModal.style.display = 'flex';
+        }
+
+        document.getElementById('cancelCompleteBtn').onclick = () => completeModal.style.display = 'none';
+
+        document.getElementById('completeForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('completeTripId').value;
+            const payload = {
+                actual_distance: parseFloat(document.getElementById('actualDistance').value),
+                fuel_consumed: parseFloat(document.getElementById('fuelConsumed').value) || null,
+                final_odometer: parseInt(document.getElementById('finalOdometer').value) || null,
+                remarks: document.getElementById('completeRemarks').value || null
+            };
+
+            try {
+                await fetchApi(`/trips/${id}/complete`, { method: 'PUT', body: JSON.stringify(payload) });
+                completeModal.style.display = 'none';
+                showToast('Trip completed successfully');
+                loadBoard();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+
+        // Cancel modal
+        const cancelModal = document.getElementById('cancelModal');
+
+        function openCancel(id) {
+            document.getElementById('cancelTripId').value = id;
+            cancelModal.style.display = 'flex';
+        }
+
+        document.getElementById('cancelCancelBtn').onclick = () => cancelModal.style.display = 'none';
+
+        document.getElementById('confirmCancelBtn').onclick = async () => {
+            const id = document.getElementById('cancelTripId').value;
+            try {
+                await fetchApi(`/trips/${id}/cancel`, { method: 'PUT' });
+                cancelModal.style.display = 'none';
+                showToast('Trip cancelled');
+                loadBoard();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+
+        loadBoard();
+    </script>
+</body>
+</html>

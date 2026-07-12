@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TransitOps Trip History - Audit log of all trip status changes">
+    <title>Trip History - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .search-bar { width: 300px; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+        <a href="trips.html" class="nav-item active">Trips</a>
+        <a href="dispatch.html" class="nav-item">Dispatch</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Trip History</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                <h1>Trip History</h1>
+                <div style="display: flex; gap: 16px;">
+                    <input type="text" id="searchInput" class="input-field search-bar" placeholder="Search by trip #...">
+                </div>
+            </div>
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Trip #</th>
+                            <th>Previous Status</th>
+                            <th>New Status</th>
+                            <th>Changed By</th>
+                            <th>Changed At</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                    <div style="color: var(--text-secondary); font-size: 14px;" id="pageInfo">Showing 0 to 0 of 0 entries</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" id="prevBtn" disabled>Previous</button>
+                        <button class="btn" id="nextBtn" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+
+        function getStatusBadge(status) {
+            const map = { 'Draft': 'badge-draft', 'Dispatched': 'badge-dispatched', 'Completed': 'badge-completed', 'Cancelled': 'badge-cancelled', 'Available': 'badge-success', 'On Trip': 'badge-info', 'In Shop': 'badge-warning', 'Retired': 'badge-danger', 'Suspended': 'badge-danger' };
+            return map[status] || 'badge-secondary';
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '&mdash;';
+            return new Date(dateStr).toLocaleString();
+        }
+
+        let allHistory = [];
+        let filteredHistory = [];
+        let currentPage = 1;
+        const itemsPerPage = 15;
+
+        async function loadData() {
+            try {
+                allHistory = await fetchApi('/trips/history');
+                applyFilters();
+            } catch (err) {
+                showToast('Failed to load trip history', 'error');
+                console.error(err);
+            }
+        }
+
+        function applyFilters() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+
+            filteredHistory = allHistory.filter(h => {
+                const tripNum = (h.trip ? h.trip.trip_number : h.trip_id || '').toString().toLowerCase();
+                return tripNum.includes(term);
+            });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            const totalItems = filteredHistory.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredHistory.slice(startIndex, endIndex);
+
+            if (paginatedData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">No history records found</td></tr>';
+            } else {
+                paginatedData.forEach(h => {
+                    const tripDisplay = h.trip ? h.trip.trip_number : `Trip #${h.trip_id}`;
+                    const tripLink = h.trip_id ? `<a href="trip-details.html?id=${h.trip_id}" style="color: var(--accent-primary); text-decoration: none;">${tripDisplay}</a>` : tripDisplay;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${tripLink}</td>
+                            <td>${h.previous_status ? `<span class="badge ${getStatusBadge(h.previous_status)}">${h.previous_status}</span>` : '<span style="color: var(--text-secondary);">Created</span>'}</td>
+                            <td><span class="badge ${getStatusBadge(h.new_status)}">${h.new_status}</span></td>
+                            <td>${h.changed_by || '&mdash;'}</td>
+                            <td>${formatDate(h.changed_at)}</td>
+                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${h.remarks || '&mdash;'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById('pageInfo').innerText = `Showing ${totalItems === 0 ? 0 : startIndex + 1} to ${Math.min(endIndex, totalItems)} of ${totalItems} entries`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; renderTable(); }
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+            if (currentPage < totalPages) { currentPage++; renderTable(); }
+        });
+
+        loadData();
+    </script>
+</body>
+</html>

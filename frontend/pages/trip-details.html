@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TransitOps Trip Details - View trip information and status history">
+    <title>Trip Details - TransitOps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/index.css">
+    <style>
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 450px; max-height: 90vh; overflow-y: auto;
+        }
+        .form-label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+        .trip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .trip-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .trip-header-left h1 { margin: 0; }
+        .trip-header-left .badge {
+            font-size: 14px;
+            padding: 6px 14px;
+        }
+        .trip-header-right {
+            display: flex;
+            gap: 12px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TransitOps</div>
+        <a href="dashboard.html" class="nav-item">Dashboard</a>
+        <a href="vehicles.html" class="nav-item">Fleet</a>
+        <a href="drivers.html" class="nav-item">Drivers</a>
+        <a href="trips.html" class="nav-item active">Trips</a>
+        <a href="dispatch.html" class="nav-item">Dispatch</a>
+    </div>
+    <div class="main-content">
+        <div class="navbar">
+            <div>Trip Details</div>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+        <div class="content-area" id="contentArea">
+            <div class="spinner" id="loadingSpinner"></div>
+        </div>
+    </div>
+
+    <!-- Complete Trip Modal -->
+    <div id="completeModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Complete Trip</h2>
+            <form id="completeForm">
+                <input type="hidden" id="completeTripId">
+                <label class="form-label" for="actualDistance">Actual Distance (km) *</label>
+                <input type="number" id="actualDistance" class="input-field" required min="0" step="0.1">
+
+                <label class="form-label" for="fuelConsumed">Fuel Consumed (liters)</label>
+                <input type="number" id="fuelConsumed" class="input-field" min="0" step="0.1">
+
+                <label class="form-label" for="finalOdometer">Final Odometer</label>
+                <input type="number" id="finalOdometer" class="input-field" min="0">
+
+                <label class="form-label" for="completeRemarks">Remarks</label>
+                <textarea id="completeRemarks" class="input-field" rows="3" style="resize: vertical; margin-bottom: 24px;"></textarea>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" id="cancelCompleteBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Complete Trip</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cancel Confirmation Modal -->
+    <div id="cancelModal" class="modal">
+        <div class="modal-content card">
+            <h2 style="margin-bottom: 16px;">Cancel Trip</h2>
+            <p style="margin-bottom: 24px;">Are you sure you want to cancel this trip?</p>
+            <input type="hidden" id="cancelTripId">
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn" id="cancelCancelBtn">Go Back</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">Cancel Trip</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script type="module">
+        import { fetchApi } from '../js/api.js';
+        import { logout } from '../js/auth.js';
+
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+
+        function getStatusBadge(status) {
+            const map = { 'Draft': 'badge-draft', 'Dispatched': 'badge-dispatched', 'Completed': 'badge-completed', 'Cancelled': 'badge-cancelled', 'Available': 'badge-success', 'On Trip': 'badge-info', 'In Shop': 'badge-warning', 'Retired': 'badge-danger', 'Suspended': 'badge-danger' };
+            return map[status] || 'badge-secondary';
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '&mdash;';
+            return new Date(dateStr).toLocaleString();
+        }
+
+        const tripId = new URLSearchParams(window.location.search).get('id');
+        const contentArea = document.getElementById('contentArea');
+
+        if (!tripId) {
+            contentArea.innerHTML = '<div class="card" style="text-align:center;"><h2>No trip ID provided</h2><p style="margin-top:12px;"><a href="trips.html" style="color:var(--accent-primary);">Back to Trips</a></p></div>';
+        } else {
+            loadTripDetails();
+        }
+
+        async function loadTripDetails() {
+            try {
+                const trip = await fetchApi(`/trips/${tripId}`);
+                let history = [];
+                try {
+                    const allHistory = await fetchApi('/trips/history');
+                    history = allHistory.filter(h => h.trip_id == tripId);
+                } catch (e) {
+                    console.warn('Could not load trip history', e);
+                }
+
+                renderTrip(trip, history);
+            } catch (err) {
+                contentArea.innerHTML = `<div class="card" style="text-align:center;"><h2>Failed to load trip</h2><p style="margin-top:12px; color: var(--text-secondary);">${err.message}</p><p style="margin-top:12px;"><a href="trips.html" style="color:var(--accent-primary);">Back to Trips</a></p></div>`;
+            }
+        }
+
+        function renderTrip(trip, history) {
+            // Build action buttons based on status
+            let actionButtons = '';
+            if (trip.status === 'Draft') {
+                actionButtons = `
+                    <button class="btn btn-primary" id="dispatchBtn">Dispatch</button>
+                    <a href="trips.html" class="btn">Edit in Trips</a>
+                `;
+            } else if (trip.status === 'Dispatched') {
+                actionButtons = `
+                    <button class="btn btn-primary" id="completeBtn">Complete</button>
+                    <button class="btn btn-danger" id="cancelBtn">Cancel</button>
+                `;
+            } else {
+                actionButtons = `<a href="trips.html" class="btn">Back to Trips</a>`;
+            }
+
+            // Build timeline
+            let timelineHtml = '';
+            if (history.length > 0) {
+                timelineHtml = history.map(h => {
+                    const statusClass = h.new_status === 'Completed' ? 'completed' : h.new_status === 'Cancelled' ? 'cancelled' : '';
+                    return `
+                        <div class="timeline-item ${statusClass}">
+                            <div class="timeline-time">${formatDate(h.changed_at)}</div>
+                            <div class="timeline-content">
+                                <span class="badge ${getStatusBadge(h.previous_status)}">${h.previous_status || 'Created'}</span>
+                                &rarr;
+                                <span class="badge ${getStatusBadge(h.new_status)}">${h.new_status}</span>
+                                ${h.changed_by ? `<span style="color: var(--text-secondary); margin-left: 8px; font-size:12px;">by ${h.changed_by}</span>` : ''}
+                                ${h.remarks ? `<div style="color: var(--text-secondary); font-size:12px; margin-top:4px;">${h.remarks}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                timelineHtml = '<div style="color: var(--text-secondary); text-align: center;">No status history available</div>';
+            }
+
+            contentArea.innerHTML = `
+                <div class="trip-header">
+                    <div class="trip-header-left">
+                        <h1>${trip.trip_number}</h1>
+                        <span class="badge ${getStatusBadge(trip.status)}">${trip.status}</span>
+                    </div>
+                    <div class="trip-header-right">
+                        ${actionButtons}
+                    </div>
+                </div>
+
+                <div class="detail-grid">
+                    <div class="card">
+                        <div class="section-title">Route Information</div>
+                        <div class="detail-grid" style="margin-bottom: 0;">
+                            <div class="detail-item">
+                                <span class="detail-label">Source</span>
+                                <span class="detail-value">${trip.source}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Destination</span>
+                                <span class="detail-value">${trip.destination}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Planned Distance</span>
+                                <span class="detail-value">${trip.planned_distance || 0} km</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Actual Distance</span>
+                                <span class="detail-value">${trip.actual_distance ? trip.actual_distance + ' km' : '&mdash;'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Estimated Duration</span>
+                                <span class="detail-value">${trip.estimated_duration || '&mdash;'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="section-title">Assignment</div>
+                        <div class="detail-grid" style="margin-bottom: 0;">
+                            <div class="detail-item">
+                                <span class="detail-label">Vehicle</span>
+                                <span class="detail-value">${trip.vehicle ? `${trip.vehicle.registration_number} (${trip.vehicle.vehicle_type})` : '&mdash;'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Driver</span>
+                                <span class="detail-value">${trip.driver ? `${trip.driver.name} - ${trip.driver.license_number}` : '&mdash;'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Cargo Weight</span>
+                                <span class="detail-value">${trip.cargo_weight || 0} kg</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 24px;">
+                    <div class="section-title">Trip Metrics</div>
+                    <div class="detail-grid" style="margin-bottom: 0;">
+                        <div class="detail-item">
+                            <span class="detail-label">Dispatch Time</span>
+                            <span class="detail-value">${formatDate(trip.dispatch_time)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Completion Time</span>
+                            <span class="detail-value">${formatDate(trip.completion_time)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Fuel Consumed</span>
+                            <span class="detail-value">${trip.fuel_consumed ? trip.fuel_consumed + ' L' : '&mdash;'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Final Odometer</span>
+                            <span class="detail-value">${trip.final_odometer ? trip.final_odometer + ' km' : '&mdash;'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                ${trip.remarks ? `
+                <div class="card" style="margin-bottom: 24px;">
+                    <div class="section-title">Remarks</div>
+                    <p style="color: var(--text-secondary);">${trip.remarks}</p>
+                </div>
+                ` : ''}
+
+                <div class="card">
+                    <div class="section-title">Status History</div>
+                    <div class="timeline">
+                        ${timelineHtml}
+                    </div>
+                </div>
+            `;
+
+            // Attach action handlers
+            if (trip.status === 'Draft') {
+                document.getElementById('dispatchBtn').onclick = async () => {
+                    try {
+                        await fetchApi(`/trips/${tripId}/dispatch`, { method: 'PUT' });
+                        showToast('Trip dispatched successfully');
+                        loadTripDetails();
+                    } catch (err) {
+                        showToast(err.message, 'error');
+                    }
+                };
+            } else if (trip.status === 'Dispatched') {
+                document.getElementById('completeBtn').onclick = () => {
+                    document.getElementById('completeForm').reset();
+                    document.getElementById('completeTripId').value = tripId;
+                    document.getElementById('completeModal').style.display = 'flex';
+                };
+                document.getElementById('cancelBtn').onclick = () => {
+                    document.getElementById('cancelTripId').value = tripId;
+                    document.getElementById('cancelModal').style.display = 'flex';
+                };
+            }
+        }
+
+        // Complete modal handlers
+        document.getElementById('cancelCompleteBtn').onclick = () => {
+            document.getElementById('completeModal').style.display = 'none';
+        };
+
+        document.getElementById('completeForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                actual_distance: parseFloat(document.getElementById('actualDistance').value),
+                fuel_consumed: parseFloat(document.getElementById('fuelConsumed').value) || null,
+                final_odometer: parseInt(document.getElementById('finalOdometer').value) || null,
+                remarks: document.getElementById('completeRemarks').value || null
+            };
+
+            try {
+                await fetchApi(`/trips/${tripId}/complete`, { method: 'PUT', body: JSON.stringify(payload) });
+                document.getElementById('completeModal').style.display = 'none';
+                showToast('Trip completed successfully');
+                loadTripDetails();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+
+        // Cancel modal handlers
+        document.getElementById('cancelCancelBtn').onclick = () => {
+            document.getElementById('cancelModal').style.display = 'none';
+        };
+
+        document.getElementById('confirmCancelBtn').onclick = async () => {
+            try {
+                await fetchApi(`/trips/${tripId}/cancel`, { method: 'PUT' });
+                document.getElementById('cancelModal').style.display = 'none';
+                showToast('Trip cancelled');
+                loadTripDetails();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        };
+    </script>
+</body>
+</html>

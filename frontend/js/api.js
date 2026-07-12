@@ -23,6 +23,10 @@ export async function fetchApi(endpoint, options = {}) {
         throw new Error("Unauthorized");
     }
 
+    if (response.status === 204) {
+        return null;
+    }
+
     const data = await response.json();
     if (!response.ok) {
         throw new Error(data.detail || "API Error");
