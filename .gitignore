@@ -1,7 +1,9 @@
-# Environments
+# Secrets / environments - NEVER commit these
+.env
+.env.*
+!.env.example
 venv/
 env/
-.env
 .venv/
 
 # Python
@@ -9,17 +11,16 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
 
-# Generation Scripts (Used for initial bootstrapping, should not be in production repo)
+# Local bootstrap / one-off generator scripts (stale copies of app code; do not run or commit)
 generate_*.py
 build_all.py
 
-# Editor / IDE
+# Editor / IDE / OS
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db
